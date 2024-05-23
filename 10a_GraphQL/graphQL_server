@@ -1,0 +1,85 @@
+import express from "express";
+import { GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLList } from 'graphql';
+import { createHandler } from 'graphql-http/lib/use/express';
+
+const app = express();
+app.use(express.static("public"));
+
+
+const booksData = [
+  { id: 1, title: 'Harry Potter', releaseYear: 1997, authorId: 1 },
+  { id: 2, title: 'Lord of the Rings', releaseYear: 1954, authorId: 2 },
+  
+];
+
+const authorsData = [
+  { id: 1, name: 'J.K. Rowling' },
+  { id: 2, name: 'J.R.R. Tolkien' },
+  
+];
+
+
+const AuthorType = new GraphQLObjectType({
+  name: 'Author',
+  fields: () => ({
+    id: { type: GraphQLInt },
+    name: { type: GraphQLString },
+    books: {
+      type: new GraphQLList(BookType),
+      resolve: (author) => booksData.filter(book => book.authorId === author.id)
+    }
+  })
+});
+
+const BookType = new GraphQLObjectType({
+  name: 'Book',
+  fields: {
+    id: { type: GraphQLInt },
+    title: { type: GraphQLString },
+    releaseYear: { type: GraphQLInt },
+    authorId: { type: GraphQLInt },
+    author: {
+      type: AuthorType,
+      resolve: (book) => authorsData.find(author => author.id === book.authorId)
+    }
+  }
+});
+
+
+const QueryType = new GraphQLObjectType({
+  name: 'Query',
+  fields: {
+    books: {
+      type: new GraphQLList(BookType),
+      resolve: () => booksData
+    },
+    authors: {
+      type: new GraphQLList(AuthorType),
+      resolve: () => authorsData
+    },
+    book: {
+      type: BookType,
+      args: { id: { type: GraphQLInt } },
+      resolve: (parent, args) => booksData.find(book => book.id === args.id)
+    },
+    author: {
+      type: AuthorType,
+      args: { id: { type: GraphQLInt } },
+      resolve: (parent, args) => authorsData.find(author => author.id === args.id)
+    }
+  }
+});
+
+
+const schema = new GraphQLSchema({
+  query: QueryType
+});
+
+
+app.all('/graphql', createHandler({ schema }));
+
+
+const PORT = 8080;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
